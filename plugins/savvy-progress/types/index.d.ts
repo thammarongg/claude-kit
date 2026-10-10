@@ -38,6 +38,8 @@ export type AgentRun = {
   stepDone?: number
   stepTotal?: number
   stepNote?: string
+  /** What the worker last asked a tool for, shown when it reports no steps. */
+  activity?: string
 }
 
 export type Panel = {

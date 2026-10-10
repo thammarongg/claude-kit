@@ -640,7 +640,8 @@ const agentSvg = (W: number, a: AgentRun, at: number): string => {
   const barW = textW
   const progress = progressOf(a)
   const stats = `ctx ${ctx}% · ${fmtTokens(a.contextTokens)}  ≈${fmtCost(a.costUsd)}  ${fmtTime(elapsed(a, at))}`
-  const steps = a.stepTotal ? `${a.stepDone ?? 0}/${a.stepTotal}${a.stepNote ? ' · ' + a.stepNote : ''}` : ''
+  // The worker's own steps when it reports them, else the tool it last asked for.
+  const steps = a.stepTotal ? `${a.stepDone ?? 0}/${a.stepTotal}${a.stepNote ? ' · ' + a.stepNote : ''}` : (a.activity ?? '')
   const stepsW = Math.max(0, barW - textWidth(stats, 11) - 12)
   // Without reported steps the bar falls back to the context, drawn grey.
   const fillW = Math.round(barW * (progress ?? ctx / 100))
@@ -723,6 +724,43 @@ async function autoOpen($: EngineInterface, key: string): Promise<void> {
   if (p.autoOpenedFor === key) return
   await update($, panel, prev => ({ ...prev, autoOpenedFor: key }))
   void $.ui.open({ id: PANE, title: tr().pane })
+}
+
+// What a worker is doing, read off the tools its last request asked for: the tool's
+// name and the one argument that tells its calls apart, never the whole input. A
+// command or a URL can carry a secret, so only the program and the host are named.
+const MAX_ACTIVITY = 80
+
+const field = (input: unknown, key: string): string => {
+  const value = typeof input === 'object' && input !== null ? (input as Record<string, unknown>)[key] : undefined
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+const baseName = (path: string): string => path.split('/').filter(Boolean).pop() ?? ''
+
+const programOf = (command: string): string => command.split(/\s+/).find(word => word && !/^\w+=/.test(word)) ?? ''
+
+// The host alone: no user:password before it, no port, path or query after it.
+const hostOf = (url: string): string => /^[a-z][a-z0-9+.-]*:\/\/(?:[^/?#@]*@)?([^/?#:]+)/i.exec(url)?.[1] ?? ''
+
+const toolLabel = (name: string, input: unknown): string => {
+  const tool = name.replace(/^mcp__.+?__/, '')
+  const detail =
+    baseName(field(input, 'file_path') || field(input, 'notebook_path')) ||
+    field(input, 'description') ||
+    programOf(field(input, 'command')) ||
+    field(input, 'pattern') ||
+    field(input, 'query') ||
+    hostOf(field(input, 'url'))
+  return detail ? `${tool} ${detail}` : tool
+}
+
+// The first call a request asked for, and how many more it asked for with it.
+const activityOf = (uses: readonly { name: string; input: unknown }[]): string => {
+  const [first] = uses
+  if (!first) return ''
+  const label = toolLabel(first.name, first.input).replace(/\s+/g, ' ')
+  return clip(uses.length > 1 ? `${label} +${uses.length - 1}` : label, MAX_ACTIVITY)
 }
 
 // How loudly a finished flow or a failed worker is announced: `toast` in the app,
@@ -914,35 +952,38 @@ export const register: Register = (on, options) => {
     const result = yield* next(e)
     const agentId = e.agentId
     const usage = result.usage
-    if (!agentId || !usage) return result
+    // A request that asks for no tool (thinking, the final answer) keeps the last label.
+    const activity = activityOf(result.toolUses ?? [])
+    if (!agentId || (!usage && !activity)) return result
 
-    const model = usage.model || e.model
     await update($, agents, list =>
-      list.map((a): AgentRun =>
-        a.agentId !== agentId
-          ? a
-          : {
-              ...a,
-              model,
-              effort: typeof e.effort === 'string' ? e.effort : a.effort,
-              status: 'running',
-              endedAt: undefined,
-              contextTokens:
-                (usage.input_tokens || 0) +
-                (usage.cache_read_input_tokens || 0) +
-                (usage.cache_creation_input_tokens || 0) +
-                (usage.output_tokens || 0),
-              contextMax: windowOf(model),
-              tokens:
-                a.tokens +
-                (usage.input_tokens || 0) +
-                (usage.output_tokens || 0) +
-                (usage.cache_read_input_tokens || 0) +
-                (usage.cache_creation_input_tokens || 0),
-              costUsd: a.costUsd + costOf(model, usage, true),
-              steps: a.steps + 1,
-            },
-      ),
+      list.map((a): AgentRun => {
+        if (a.agentId !== agentId) return a
+        const seen: AgentRun = activity ? { ...a, activity } : a
+        if (!usage) return seen
+        const model = usage.model || e.model
+        return {
+          ...seen,
+          model,
+          effort: typeof e.effort === 'string' ? e.effort : a.effort,
+          status: 'running',
+          endedAt: undefined,
+          contextTokens:
+            (usage.input_tokens || 0) +
+            (usage.cache_read_input_tokens || 0) +
+            (usage.cache_creation_input_tokens || 0) +
+            (usage.output_tokens || 0),
+          contextMax: windowOf(model),
+          tokens:
+            a.tokens +
+            (usage.input_tokens || 0) +
+            (usage.output_tokens || 0) +
+            (usage.cache_read_input_tokens || 0) +
+            (usage.cache_creation_input_tokens || 0),
+          costUsd: a.costUsd + costOf(model, usage, true),
+          steps: a.steps + 1,
+        }
+      }),
     )
     return result
   })
@@ -1067,7 +1108,11 @@ export const register: Register = (on, options) => {
       const ctx = ctxOf(a)
       const progress = progressOf(a)
       const model = a.effort ? `${modelName(a.model)} · ${a.effort}` : modelName(a.model)
-      const steps = a.stepTotal ? `${a.stepDone ?? 0}/${a.stepTotal}${a.stepNote ? ' ' + a.stepNote : ''} · ` : ''
+      const steps = a.stepTotal
+        ? `${a.stepDone ?? 0}/${a.stepTotal}${a.stepNote ? ' ' + a.stepNote : ''} · `
+        : a.activity
+          ? `${a.activity} · `
+          : ''
       return (
         <Box key={a.id} flexDirection="column" marginBottom={1}>
           <Box flexDirection="row" gap={1}>

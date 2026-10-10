@@ -8,7 +8,7 @@ A Claude Code mod: a progress bar above the prompt and a live panel of subagents
 ## Tools it adds
 
 - `mcp__savvy-progress__progress`: the orchestrator reports the plan, phase and accepted tasks. Only the main session can: a call from a subagent is ignored, so a worker cannot rename, finish or reset the flow.
-- `mcp__savvy-progress__step`: a worker reports its own steps (`done`, `total`, `note`). A worker that does not report shows its context fill in grey instead.
+- `mcp__savvy-progress__step`: a worker reports its own steps (`done`, `total`, `note`). A worker that does not report shows the tool it last asked for in that place (`Read register.tsx`, `Bash Run the unit tests`, `Grep costOf +2`), and its context fill in grey as the bar. Only a tool's name and one telling argument are shown: a file's name without its path, a command's description or else its program, a URL's host.
 
 Cost is a rough estimate from token counts and a built-in per-model price table (`PRICES` in `hooks/register.tsx`, list prices as of 2026-10-10), not a bill. Cache writes are priced at the 1-hour rate, which is what Claude Code writes on a subscription; a session that writes 5-minute entries is overestimated there.
 
