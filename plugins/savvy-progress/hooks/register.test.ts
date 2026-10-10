@@ -37,6 +37,23 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(await $.tool.call({ tool: PROGRESS, finished: true } as never)).toMatchObject({ result: 'ok: Done' })
   })
 
+  // The terminal's element table names `Svg` too, but draws nothing for it: its row must be text.
+  test(`${surface}: the band is ${surface === 'terminal' ? 'text' : 'one drawing'}`, async ($, on) => {
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    await $.tool.call(plan as never)
+
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band })
+    const drawings = await ui.findAll({ type: 'Svg' })
+    if (surface === 'terminal') {
+      expect(drawings).toHaveLength(0)
+      expect(await ui.find({ type: 'Text', text: /Ship the thing/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /Tasks 0\/2/ })).toBeDefined()
+    } else {
+      expect(drawings).toHaveLength(1)
+      expect(String(drawings[0]?.props.source)).toContain('Ship the thing')
+    }
+  })
+
   test(`${surface}: the panel lists planned tasks in Thai`, { options: { language: 'th' } }, async ($, on) => {
     mock.clock(on)
     on('session.start', (_$, e) => ({ cwd: e.cwd }))
