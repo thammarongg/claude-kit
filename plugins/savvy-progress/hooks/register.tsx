@@ -16,7 +16,7 @@ const TOOL = 'mcp__savvy-progress__progress'
 const STEP_TOOL = 'mcp__savvy-progress__step'
 const PANE = 'savvy-agents'
 const PHASES: readonly Phase[] = ['plan', 'design', 'delegate', 'review', 'close']
-const TIERS: readonly string[] = ['fable', 'heavy', 'careful', 'medium', 'light']
+const TIERS: readonly string[] = ['fable', 'heavy', 'careful', 'medium', 'light', 'sonnet', 'haiku']
 // The tools' schemas are advice to the model, not a check: what a call may ask
 // the band and the panel to draw is bounded here.
 const MAX_TASKS = 200
@@ -344,6 +344,8 @@ const TIER_COLOR: Record<string, string> = {
   careful: '#BA7517',
   medium: '#378ADD',
   light: '#1D9E75',
+  sonnet: '#D4537E',
+  haiku: '#8DB33A',
   other: '#888780',
 }
 
@@ -356,6 +358,8 @@ const TIER_MODEL: Record<string, string> = {
   careful: 'Opus · high',
   medium: 'Opus · medium',
   light: 'Opus · low',
+  sonnet: 'Sonnet · medium',
+  haiku: 'Haiku · medium',
 }
 
 // USD per million tokens: input, output, cache read, cache write. The first row that
@@ -517,6 +521,8 @@ const CRAB_CSS = `<style>
 .c-light.run .la{animation-duration:.25s}.c-light.run .lb{animation-duration:.25s;animation-delay:-.125s}
 .c-light.run .flag{transform-origin:0 50%;animation:wave .25s steps(1) infinite}
 @keyframes wave{50%{transform:skewY(-12deg) scaleX(.85)}}
+.c-sonnet.run .it{transform-origin:0 100%;animation:twist 1s ease-in-out infinite}
+.c-haiku.run .la{animation-duration:.25s}.c-haiku.run .lb{animation-duration:.25s;animation-delay:-.125s}
 .c-explore.run .it{transform-origin:50% 100%;animation:fence .5s ease-in-out infinite}
 @keyframes fence{50%{transform:rotate(25deg)}}
 @media (prefers-reduced-motion: reduce){.run,.run g{animation:none!important}}
@@ -558,6 +564,18 @@ const COSTUMES: Record<string, (f: Fill, t: string) => void> = {
     stamp(f, 6, 5, ['....rrrrrrrrrr....', '..rrrrrrwwrrrrrr..', '.rrrrrrrwwrrrrrrr.', '.rrrrrrrwwrrrrrrr.', '.rrrrrrrwwrrrrrrr.', '.kkkkkkkkkkkkkkkkr'], { r: t, w: '#F8F6F1', k: INK })
     f(25, 1, 1, 9, '#8E929A')
     stamp(f, 26, 1, ['wkwk', 'kwkw', 'wkwk'], { w: '#F8F6F1', k: INK }, 'flag')
+  },
+  // Sonnet: poet in a beret, a quill in the raised claw.
+  sonnet: (f, t) => {
+    crabBody(f, -4, 'it')
+    stamp(f, 6, 5, ['.......tt.........', '....tttttttttt....', '..tttttttttttttt..', '.tttttttttttttttt.', '..dddddddddddddd..'], { t, d: '#9E3A5C' })
+    f(27, 2, 1, 4, '#F4F3EE', 'it'); f(26, 4, 1, 6, '#F4F3EE', 'it'); f(25, 10, 1, 1, INK, 'it')
+  },
+  // Haiku: a headband with the tier's dot, and a sprout on top.
+  haiku: (f, t) => {
+    crabBody(f)
+    f(7, 10, 16, 1, '#F4F3EE'); f(14, 10, 2, 1, t); f(23, 10, 2, 1, '#F4F3EE'); f(24, 11, 1, 2, '#F4F3EE')
+    f(14, 7, 1, 3, '#5E8C31'); f(15, 6, 2, 2, t); f(12, 7, 2, 2, t)
   },
   // Explore: pirate scouting the code; the cutlass fences.
   explore: f => {
