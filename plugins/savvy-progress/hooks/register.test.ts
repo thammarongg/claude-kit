@@ -72,4 +72,19 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(drawn).not.toContain('native code')
     expect(drawn).not.toContain('[object')
   })
+
+  // The stored title is clipped, so the incoming one is clipped before the two are compared.
+  test(`${surface}: a title past the cap is still the same flow`, async ($, on) => {
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    const long = 'L'.repeat(500)
+
+    const first = await $.tool.call({ tool: PROGRESS, title: long, phase: 'delegate', total: 4, done: 2 } as never)
+    expect(first).toMatchObject({ result: 'ok: Tasks 2/4' })
+
+    // Repeating the long title keeps the counters instead of starting over at 0/0.
+    expect(await $.tool.call({ tool: PROGRESS, title: long } as never)).toMatchObject({ result: 'ok: Tasks 2/4' })
+
+    const started = await $.tool.call({ tool: PROGRESS, title: 'Another flow', phase: 'delegate', total: 3 } as never)
+    expect(started).toMatchObject({ result: 'ok: Tasks 0/3' })
+  })
 }
