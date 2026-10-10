@@ -512,8 +512,8 @@ const totals = (list: AgentRun[], at: number) => {
 
 // t: text, s: secondary text, m: muted text and the context bar, k: a bar's track,
 // ln: a hairline, tile: a card's surface, er: an error.
-const PANE_LIGHT = '.t{fill:#1f1f1f}.s{fill:#5f5e5a}.m{fill:#77766f}.k{fill:#e9e7e2}.ln{stroke:#dedcd6}.tile{fill:#f4f3f0}.er{fill:#c0392f}'
-const PANE_DARK = '.t{fill:#ececec}.s{fill:#b4b3ae}.m{fill:#9b9a95}.k{fill:#343432}.ln{stroke:#3a3a38}.tile{fill:#2a2a28}.er{fill:#f0736c}'
+const PANE_LIGHT = '.t{fill:#1f1f1f}.s{fill:#5f5e5a}.m{fill:#77766f}.k{fill:#e9e7e2}.ln{stroke:#dedcd6}.tile{fill:#f7f6f3;stroke:#dedcd6}.er{fill:#c0392f}'
+const PANE_DARK = '.t{fill:#ececec}.s{fill:#b4b3ae}.m{fill:#9b9a95}.k{fill:#343432}.ln{stroke:#3a3a38}.tile{fill:#2a2a28;stroke:#3f3f3c}.er{fill:#f0736c}'
 
 const paneCss = (look: Theme): string => `<style>
 ${themed(look, PANE_LIGHT, PANE_DARK)}
@@ -666,26 +666,28 @@ const statusMark = (x: number, y: number, status: string, color: string): string
 const svg = (W: number, H: number, body: string, look: Theme): string =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${paneCss(look)}${CRAB_CSS}${paperCss(look)}${body}</svg>`
 
-// The pane's own title already says "Agents": the header names the flow, if any.
-const headerSvg = (W: number, title: string, t: ReturnType<typeof totals>, look: Theme): string => {
+// The panel's figures on one card: what the crew cost, used and took, and how many
+// they are, with the failed ones counted in the error colour.
+const SUMMARY_H = 64
+
+const summarySvg = (W: number, t: ReturnType<typeof totals>, crew: number, failed: number, look: Theme): string => {
   const s = tr()
-  const gap = 6
-  const tw = (W - gap * 2) / 3
-  const top = title ? 28 : 0
-  const tile = (i: number, k: string, v: string) =>
-    `<rect class="tile" x="${i * (tw + gap)}" y="${top}" width="${tw}" height="40" rx="8"/>
-<text class="s" x="${i * (tw + gap) + 9}" y="${top + 16}" font-family="${FONT}" font-size="11">${k}</text>
-<text class="t" x="${i * (tw + gap) + 9}" y="${top + 33}" font-family="${FONT}" font-size="15" font-weight="600" font-variant-numeric="tabular-nums">${v}</text>`
+  const col = (W - 1) / 4
+  const cell = (i: number, value: string, name: string): string =>
+    `<text class="t" x="${Math.round(i * col) + 12}" y="30" font-family="${FONT}" font-size="16" font-weight="600" font-variant-numeric="tabular-nums">${value}</text>
+<text class="s" x="${Math.round(i * col) + 12}" y="47" font-family="${FONT}" font-size="11">${xml(name)}</text>`
+  const rules = [1, 2, 3].map(i => `<line class="ln" x1="${Math.round(i * col) + 0.5}" y1="17" x2="${Math.round(i * col) + 0.5}" y2="47"/>`).join('')
+  const failedMark = failed
+    ? `<text class="er" x="${W - 13}" y="30" text-anchor="end" font-family="${FONT}" font-size="12" font-weight="600" font-variant-numeric="tabular-nums">${failed} ✕</text>`
+    : ''
   return svg(
     W,
-    headerHeight(title),
-    `${title ? `<text class="t" x="0" y="15" font-family="${FONT}" font-size="14" font-weight="600">${xml(fitText(title, 14, W))}</text>` : ''}
-${tile(0, s.cost, '≈' + fmtCost(t.cost))}${tile(1, s.tokens, fmtTokens(t.tokens))}${tile(2, s.time, fmtTime(t.time))}`,
+    SUMMARY_H,
+    `<rect class="tile" x="0.5" y="6.5" width="${W - 1}" height="51" rx="10"/>${rules}
+${cell(0, '≈' + fmtCost(t.cost), s.cost)}${cell(1, fmtTokens(t.tokens), s.tokens)}${cell(2, fmtTime(t.time), s.time)}${cell(3, String(crew), s.pane)}${failedMark}`,
     look,
   )
 }
-
-const headerHeight = (title: string): number => (title ? 72 : 44)
 
 // The task's own progress when the worker reports steps; a finished run is full.
 const progressOf = (a: AgentRun): number | null => {
@@ -696,37 +698,48 @@ const progressOf = (a: AgentRun): number | null => {
 
 const ctxOf = (a: AgentRun): number => (a.contextMax ? Math.min(100, Math.round((a.contextTokens / a.contextMax) * 100)) : 0)
 
+// A worker's row, with room under it instead of a rule: the crab, three lines and
+// the bar. Money and time sit beside the model, the context beside what it is doing.
+const AGENT_H = 68
+
 const agentSvg = (W: number, a: AgentRun, at: number, look: Theme): string => {
   const s = tr()
   const tier = tierOf(a.type)
   const color = colorOf(tier)
   const ctx = ctxOf(a)
-  const textW = W - 42 - 22
+  const isFailed = a.status === 'failed'
+  const barW = W - 42 - 22
+  const progress = progressOf(a)
+  const spent = `≈${fmtCost(a.costUsd)} · ${fmtTime(elapsed(a, at))}`
+  const context = `ctx ${ctx}% · ${fmtTokens(a.contextTokens)}`
+  const name = tier === 'other' ? a.type : tier
   const meta = [a.effort ? `${modelName(a.model)} · ${a.effort}` : modelName(a.model)]
   if (a.round > 1) meta.push(`${s.round} ${a.round}`)
-  if (a.status === 'failed') meta.push(s.failed)
-  const barW = textW
-  const progress = progressOf(a)
-  const stats = `ctx ${ctx}% · ${fmtTokens(a.contextTokens)}  ≈${fmtCost(a.costUsd)}  ${fmtTime(elapsed(a, at))}`
+  const failedNote = isFailed ? `  ·  ${s.failed}` : ''
+  // The model gives way first when the row is narrow; the tier's name and a failure stay.
+  const metaW = Math.max(0, barW - textWidth(spent, 11) - 14 - textWidth(`${name}  ${failedNote}`, 11))
   // The worker's own steps when it reports them, else the tool it last asked for.
   const steps = a.stepTotal ? `${a.stepDone ?? 0}/${a.stepTotal}${a.stepNote ? ' · ' + a.stepNote : ''}` : (a.activity ?? '')
-  const stepsW = Math.max(0, barW - textWidth(stats, 11) - 12)
-  // Without reported steps the bar falls back to the context, drawn grey.
+  const stepsW = Math.max(0, barW - textWidth(context, 11) - 14)
+  // Without reported steps the bar falls back to the context, drawn grey; a failed run's is in the error colour.
   const fillW = Math.round(barW * (progress ?? ctx / 100))
+  const fill = isFailed ? ' class="er"' : progress === null ? ' class="m"' : ` fill="${color}"`
   return svg(
     W,
-    66,
-    `${crab(0, 14, costumeOf(a.type), false, a.status === 'running')}
-<text class="t" x="42" y="18" font-family="${FONT}" font-size="13" font-weight="600">${xml(fitText(a.description || a.type, 13, textW))}</text>
-<text x="42" y="34" font-family="${FONT}" font-size="11"><tspan fill="${tierInk(tier, look)}">${xml(tier === 'other' ? a.type : tier)}</tspan><tspan class="s">  ${xml(meta.join('  ·  '))}</tspan></text>
-${steps && stepsW > 30 ? `<text class="t" x="42" y="49" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${xml(fitText(steps, 11, stepsW))}</text>` : ''}
-<text class="s" x="${42 + barW}" y="49" text-anchor="end" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${stats}</text>
-<rect class="k" x="42" y="55" width="${barW}" height="4" rx="2"/><rect${progress === null ? ' class="m"' : ''} x="42" y="55" width="${fillW}" height="4" rx="2"${progress === null ? '' : ` fill="${color}"`}/>
-${statusMark(W - 8, 16, a.status, color)}
-<line class="ln" x1="0" y1="65.5" x2="${W}" y2="65.5"/>`,
+    AGENT_H,
+    `${crab(0, 12, costumeOf(a.type), false, a.status === 'running')}
+<text class="t" x="42" y="16" font-family="${FONT}" font-size="13" font-weight="600">${xml(fitText(a.description || a.type, 13, barW))}</text>
+<text x="42" y="32" font-family="${FONT}" font-size="11"><tspan fill="${tierInk(tier, look)}">${xml(name)}</tspan><tspan class="s">  ${xml(metaW > 24 ? fitText(meta.join('  ·  '), 11, metaW) : '')}</tspan>${isFailed ? `<tspan class="er">${xml(failedNote)}</tspan>` : ''}</text>
+<text class="s" x="${42 + barW}" y="32" text-anchor="end" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${spent}</text>
+${steps && stepsW > 30 ? `<text class="t" x="42" y="47" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${xml(fitText(steps, 11, stepsW))}</text>` : ''}
+<text class="m" x="${42 + barW}" y="47" text-anchor="end" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${context}</text>
+<rect class="k" x="42" y="54" width="${barW}" height="4" rx="2"/><rect${fill} x="42" y="54" width="${fillW}" height="4" rx="2"/>
+${statusMark(W - 8, 14, a.status, color)}`,
     look,
   )
 }
+
+const PLANNED_H = 50
 
 const plannedSvg = (W: number, p: Planned, look: Theme): string => {
   const tier = p.tier in TIER_COLOR ? p.tier : 'other'
@@ -736,12 +749,11 @@ const plannedSvg = (W: number, p: Planned, look: Theme): string => {
   if (p.after.length) meta.push(`${tr().after} ${p.after.join(', ')}`)
   return svg(
     W,
-    46,
-    `${crab(0, 6, tier, true)}
-<text class="s" x="42" y="18" font-family="${FONT}" font-size="13" font-weight="600">${xml(fitText(`${p.n}. ${p.title}`, 13, textW))}</text>
-<text x="42" y="34" font-family="${FONT}" font-size="11"><tspan fill="${tierInk(tier, look)}">${xml(tier)}</tspan><tspan class="m">  ${xml(meta.filter(Boolean).join('  ·  '))}</tspan></text>
-${statusMark(W - 8, 16, 'planned', color)}
-<line class="ln" x1="0" y1="45.5" x2="${W}" y2="45.5"/>`,
+    PLANNED_H,
+    `${crab(0, 4, tier, true)}
+<text class="s" x="42" y="16" font-family="${FONT}" font-size="13" font-weight="600">${xml(fitText(`${p.n}. ${p.title}`, 13, textW))}</text>
+<text x="42" y="32" font-family="${FONT}" font-size="11"><tspan fill="${tierInk(tier, look)}">${xml(tier)}</tspan><tspan class="m">  ${xml(meta.filter(Boolean).join('  ·  '))}</tspan></text>
+${statusMark(W - 8, 14, 'planned', color)}`,
     look,
   )
 }
@@ -756,7 +768,12 @@ const compactSvg = (W: number, list: AgentRun[], planned: Planned[], t: ReturnTy
   const shown = icons.slice(0, fit)
   const more = icons.length - shown.length
   const body = shown
-    .map((ic, i) => crab(i * 36, 0, ic.k, ic.dim, ic.s === 'running') + (ic.s === 'running' ? `<circle class="live" cx="${i * 36 + 32}" cy="4" r="3" fill="${ic.c}"/>` : ''))
+    .map(
+      (ic, i) =>
+        crab(i * 36, 0, ic.k, ic.dim, ic.s === 'running') +
+        (ic.s === 'running' ? `<circle class="live" cx="${i * 36 + 32}" cy="4" r="3" fill="${ic.c}"/>` : '') +
+        (ic.s === 'failed' ? `<circle class="er" cx="${i * 36 + 32}" cy="4" r="3"/>` : ''),
+    )
     .join('')
   const x = shown.length * 36 + (more ? 4 : 0)
   return svg(
@@ -1117,7 +1134,10 @@ export const register: Register = (on, options) => {
     const at = Math.max(await read($, now), ...list.map(a => a.startedAt), 0)
 
     const running = list.filter(a => a.status === 'running').reverse()
-    const finished = list.filter(a => a.status !== 'running').reverse()
+    // A failed run is its own group, above the finished ones: it is the one to look at.
+    const failed = list.filter(a => a.status === 'failed').reverse()
+    const done = list.filter(a => a.status === 'done').reverse()
+    const failedHead = `${s.failed.charAt(0).toUpperCase()}${s.failed.slice(1)} · ${failed.length}`
     const planned = plannedOf(f, list)
     const t = totals(list, at)
     // The pane's title says "Agents"; inside, only the flow's own name.
@@ -1127,15 +1147,15 @@ export const register: Register = (on, options) => {
       <Button
         key="compact"
         label={p.isCompact ? s.expand : s.collapse}
-        plain
+        variant="secondary"
         onPress={() => update($, panel, prev => ({ ...prev, isCompact: !prev.isCompact }))}
       />
     )
     const toggleDone = (
       <Button
         key="done"
-        label={`${p.isDoneCollapsed ? '▸' : '▾'} ${s.finished} · ${finished.length}`}
-        plain
+        label={`${p.isDoneCollapsed ? '▸' : '▾'} ${s.finished} · ${done.length}`}
+        variant="secondary"
         onPress={() => update($, panel, prev => ({ ...prev, isDoneCollapsed: !prev.isDoneCollapsed }))}
       />
     )
@@ -1151,31 +1171,54 @@ export const register: Register = (on, options) => {
         </Text>
       )
 
+      // The flow's name beside the control that folds the panel.
+      const head = (
+        <Box key="head" flexDirection="row" justifyContent="space-between" alignItems="center">
+          <Text bold wrap="truncate-end">
+            {title}
+          </Text>
+          {toggleCompact}
+        </Box>
+      )
+
       if (p.isCompact) {
         return (
           <Box flexDirection="column" gap={1}>
+            {head}
             <Svg source={compactSvg(W, list, planned, t, look)} alt={`${list.length} ${s.agentsCount}, ${summary}`} width={W} height={32} />
-            {toggleCompact}
           </Box>
         )
       }
       return (
         <Box flexDirection="column">
-          <Svg source={headerSvg(W, title, t, look)} alt={title ? `${title}: ${summary}` : summary} width={W} height={headerHeight(title)} />
-          {toggleCompact}
+          {head}
+          <Svg
+            source={summarySvg(W, t, list.length, failed.length, look)}
+            alt={`${summary}, ${list.length} ${s.agentsCount}`}
+            width={W}
+            height={SUMMARY_H}
+          />
           {isEmpty && <Text dimColor>{s.empty}</Text>}
           {running.length > 0 && section('h-run', `${s.running} · ${running.length}`)}
           {running.map(a => (
-            <Svg key={a.id} source={agentSvg(W, a, at, look)} alt={`${a.description}: ${modelName(a.model)}, ${s.isRunning}`} width={W} height={66} />
+            <Svg key={a.id} source={agentSvg(W, a, at, look)} alt={`${a.description}: ${modelName(a.model)}, ${s.isRunning}`} width={W} height={AGENT_H} />
           ))}
-          {finished.length > 0 && toggleDone}
+          {failed.length > 0 && (
+            <Text key="h-fail" color="error">
+              {failedHead}
+            </Text>
+          )}
+          {failed.map(a => (
+            <Svg key={a.id} source={agentSvg(W, a, at, look)} alt={`${a.description}: ${modelName(a.model)}, ${s.failed}`} width={W} height={AGENT_H} />
+          ))}
+          {done.length > 0 && toggleDone}
           {!p.isDoneCollapsed &&
-            finished.map(a => (
-              <Svg key={a.id} source={agentSvg(W, a, at, look)} alt={`${a.description}: ${modelName(a.model)}, ${s.isFinished}`} width={W} height={66} />
+            done.map(a => (
+              <Svg key={a.id} source={agentSvg(W, a, at, look)} alt={`${a.description}: ${modelName(a.model)}, ${s.isFinished}`} width={W} height={AGENT_H} />
             ))}
           {planned.length > 0 && section('h-plan', `${s.planned} · ${planned.length}`)}
           {planned.map(pl => (
-            <Svg key={`plan-${pl.n}`} source={plannedSvg(W, pl, look)} alt={`${pl.n}. ${pl.title}: ${s.isPlanned}`} width={W} height={46} />
+            <Svg key={`plan-${pl.n}`} source={plannedSvg(W, pl, look)} alt={`${pl.n}. ${pl.title}: ${s.isPlanned}`} width={W} height={PLANNED_H} />
           ))}
         </Box>
       )
@@ -1202,7 +1245,7 @@ export const register: Register = (on, options) => {
             <Text bold wrap="truncate-end">
               {a.description || a.type}
             </Text>
-            <Text color={a.status === 'failed' ? 'red' : a.status === 'done' ? 'green' : color}>{STATUS_GLYPH[a.status]}</Text>
+            <Text color={a.status === 'failed' ? 'error' : a.status === 'done' ? 'success' : color}>{STATUS_GLYPH[a.status]}</Text>
           </Box>
           <Text dimColor wrap="truncate-end">
             {'  '}
@@ -1234,8 +1277,8 @@ export const register: Register = (on, options) => {
         </Text>
         {p.isCompact ? (
           <Text wrap="truncate-end">
-            {[...running, ...finished].map(a => (
-              <Text key={a.id} color={colorOf(tierOf(a.type))}>
+            {[...running, ...failed, ...done].map(a => (
+              <Text key={a.id} color={a.status === 'failed' ? 'error' : colorOf(tierOf(a.type))}>
                 {STATUS_GLYPH[a.status]}{' '}
               </Text>
             ))}
@@ -1250,8 +1293,10 @@ export const register: Register = (on, options) => {
             {isEmpty && <Text dimColor>{s.empty}</Text>}
             {running.length > 0 && <Text dimColor>{s.running} · {running.length}</Text>}
             {running.map(row)}
-            {finished.length > 0 && toggleDone}
-            {!p.isDoneCollapsed && finished.map(row)}
+            {failed.length > 0 && <Text color="error">{failedHead}</Text>}
+            {failed.map(row)}
+            {done.length > 0 && toggleDone}
+            {!p.isDoneCollapsed && done.map(row)}
             {planned.length > 0 && <Text dimColor>{s.planned} · {planned.length}</Text>}
             {planned.map(pl => {
               const tier = pl.tier in TIER_COLOR ? pl.tier : 'other'
