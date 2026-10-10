@@ -10,7 +10,7 @@ A Claude Code mod: a progress bar above the prompt and a live panel of subagents
 - `mcp__savvy-progress__progress`: the orchestrator reports the plan, phase and accepted tasks.
 - `mcp__savvy-progress__step`: a worker reports its own steps (`done`, `total`, `note`). A worker that does not report shows its context fill in grey instead.
 
-Cost is a rough estimate from token counts and a built-in per-model price table (`PRICES` in `hooks/register.tsx`), not a bill.
+Cost is a rough estimate from token counts and a built-in per-model price table (`PRICES` in `hooks/register.tsx`, list prices as of 2026-10-10), not a bill. Cache writes are priced at the 1-hour rate, which is what Claude Code writes on a subscription; a session that writes 5-minute entries is overestimated there.
 
 ## Settings
 
