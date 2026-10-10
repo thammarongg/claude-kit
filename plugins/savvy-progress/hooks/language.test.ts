@@ -19,8 +19,8 @@ const REPORTED = { en: 'ok: Tasks 0/2', th: 'ok: งาน 0/2', ru: 'ok: Зад
 type Case = {
   name: string
   option: string
-  // Claude Code's settings as `$.settings.read()` returns them.
-  settings: Record<string, unknown>
+  // Claude Code's settings as `$.settings.read()` returns them; null when reading them fails.
+  settings: Record<string, unknown> | null
   // The environment as `$.env.get` sees it: a variable left out is unset.
   env: Record<string, string>
   expected: keyof typeof REPORTED
@@ -69,13 +69,34 @@ const cases: readonly Case[] = [
     env: { LANG: 'the_XX' },
     expected: 'en',
   },
+  {
+    name: 'auto without a language setting reads LC_MESSAGES before LANG',
+    option: 'auto',
+    settings: {},
+    env: { LC_MESSAGES: 'th_TH.UTF-8', LANG: 'ru_RU.UTF-8' },
+    expected: 'th',
+  },
+  {
+    name: 'auto falls back to the locale when the settings cannot be read',
+    option: 'auto',
+    settings: null,
+    env: { LANG: 'th_TH.UTF-8' },
+    expected: 'th',
+  },
+  {
+    name: 'auto ignores a language setting that is only whitespace',
+    option: 'auto',
+    settings: { language: '   ' },
+    env: { LANG: 'th_TH.UTF-8' },
+    expected: 'th',
+  },
 ]
 
 for (const c of cases) {
   test(`language: ${c.name}`, { options: { language: c.option } }, async ($, on) => {
     mock.clock(on)
     mock.env(on, c.env)
-    on('settings.read', () => ({ value: c.settings }))
+    on('settings.read', () => (c.settings ? { value: c.settings } : { deny: 'settings are unreadable' }))
     on('session.start', (_$, e) => ({ cwd: e.cwd }))
     on('tool.register', (_$, e) => ({ value: { tool: `mcp__${PLUGIN}__${e.name}` } }))
     on('command.register', (_$, e) => ({ value: { command: e.name } }))
