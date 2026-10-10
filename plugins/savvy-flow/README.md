@@ -14,6 +14,8 @@ An orchestrated delivery flow for Claude Code. Run `/savvy-flow <task>` (`/savvy
   | `savvy-careful` | Opus / high | delicate but well-understood changes |
   | `savvy-medium` | Opus / medium | standard feature work |
   | `savvy-light` | Opus / low | mechanical edits, builds, tests |
+  | `savvy-sonnet` | Sonnet / medium | routine work the brief specifies completely, at lower cost |
+  | `savvy-haiku` | Haiku / medium | no-judgment work: search, run and report, exact one-line edits |
 
   `savvy-fable` runs on the Fable model; without access to it, change `model:` in `agents/savvy-fable.md` (say, to `opus`).
 
