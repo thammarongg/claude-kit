@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 const PLUGIN = 'savvy-progress'
 const PROGRESS = 'mcp__savvy-progress__progress'
+const STEP = 'mcp__savvy-progress__step'
 
 const plan = {
   tool: PROGRESS,
@@ -15,6 +16,12 @@ const plan = {
 
 // What the tool answers once a plan is reported, per detected language.
 const REPORTED = { en: 'ok: Tasks 0/2', th: 'ok: งาน 0/2', ru: 'ok: Задачи 0/2' } as const
+// What the step tool answers the main session, which is not a worker.
+const IGNORED = {
+  en: 'ignored: only subagents report steps',
+  th: 'ignored: เฉพาะซับเอเจนต์เท่านั้นที่รายงานขั้นตอนได้',
+  ru: 'ignored: о шагах сообщают только субагенты',
+} as const
 
 type Case = {
   name: string
@@ -104,5 +111,6 @@ for (const c of cases) {
     await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
 
     expect(await $.tool.call(plan as never)).toMatchObject({ result: REPORTED[c.expected] })
+    expect(await $.tool.call({ tool: STEP, done: 1 } as never)).toMatchObject({ result: IGNORED[c.expected] })
   })
 }

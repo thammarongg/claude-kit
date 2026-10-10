@@ -68,6 +68,7 @@ const STRINGS = {
     tasks: 'Tasks',
     review: 'Review',
     busy: 'running',
+    workersOnly: 'only subagents report steps',
   },
   th: {
     pane: 'เอเจนต์',
@@ -96,6 +97,7 @@ const STRINGS = {
     tasks: 'งาน',
     review: 'รีวิว',
     busy: 'กำลังทำ',
+    workersOnly: 'เฉพาะซับเอเจนต์เท่านั้นที่รายงานขั้นตอนได้',
   },
   ru: {
     pane: 'Агенты',
@@ -124,6 +126,7 @@ const STRINGS = {
     tasks: 'Задачи',
     review: 'Ревью',
     busy: 'в работе',
+    workersOnly: 'о шагах сообщают только субагенты',
   },
 } as const
 
@@ -780,7 +783,7 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: STEP_TOOL }, async ($, e) => {
     const input = e as unknown as { done?: number; total?: number; note?: string }
     const agentId = e.agentId
-    if (!agentId) return { result: 'ignored: only subagents report steps' }
+    if (!agentId) return { result: `ignored: ${tr().workersOnly}` }
     await update($, agents, list =>
       list.map(a => {
         if (a.agentId !== agentId) return a
