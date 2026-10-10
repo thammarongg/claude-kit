@@ -1,6 +1,6 @@
 {
   "name": "savvy-progress",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Progress bar above the prompt for /savvy-flow, plus an agents panel (/agents-info): running, finished and planned subagents with model, task progress, context, cost and time.",
   "author": {
     "name": "thammarongg",
@@ -18,6 +18,17 @@
         "en",
         "th",
         "ru"
+      ]
+    },
+    "notify": {
+      "type": "string",
+      "title": "Notifications",
+      "description": "When a flow finishes or a subagent fails: toast shows it in the app, native also uses your notification channel, off stays quiet",
+      "default": "toast",
+      "options": [
+        "off",
+        "toast",
+        "native"
       ]
     }
   },

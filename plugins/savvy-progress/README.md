@@ -20,4 +20,6 @@ Cost is a rough estimate from token counts and a built-in per-model price table 
 { "pluginConfigs": { "savvy-progress": { "options": { "language": "ru" } } } }
 ```
 
+`notify`: `toast` (default), `native` or `off`. When a flow finishes, and when a subagent ends in an error or a refusal, the mod says so in a toast: `Ship the thing: Done · 3/3 · ≈$0.42 · 5:10`. `native` also sends it through your own notification channel (Claude Code's `preferredNotifChannel`), for when the window is not in front; `off` stays quiet. A subagent you interrupt yourself is not announced.
+
 Install instructions are in the [repository README](../../README.md).

@@ -173,6 +173,13 @@ const tierName = (v: string): string => {
   return TIERS.includes(t) ? t : ''
 }
 
+// A flow that already finished, reported as finished again: nothing changes and
+// nothing is announced a second time.
+const isRepeatFinish = (prev: Flow | null, input: ProgressInput): prev is Flow =>
+  prev?.isFinished === true &&
+  input.finished === true &&
+  (input.title === undefined || clip(input.title.trim(), MAX_TITLE) === prev.title)
+
 const cleanTasks = (tasks: ProgressInput['tasks']): PlannedTask[] | undefined =>
   tasks
     ?.filter(t => t.title?.trim())
@@ -715,7 +722,33 @@ async function autoOpen($: EngineInterface, key: string): Promise<void> {
   void $.ui.open({ id: PANE, title: tr().pane })
 }
 
+// How loudly a finished flow or a failed worker is announced: `toast` in the app,
+// `native` on the person's own notification channel as well, `off` not at all.
+type NotifyMode = 'off' | 'toast' | 'native'
+
+const notifyModeOf = (option: unknown): NotifyMode => (option === 'off' || option === 'native' ? option : 'toast')
+
+async function announce($: EngineInterface, mode: NotifyMode, text: string): Promise<void> {
+  if (mode === 'off') return
+  $.ui.toast(text, { timeoutMs: 8000 })
+  // The channel may be turned off or refuse: the toast has been shown either way.
+  if (mode === 'native') await $.ui.notify(text).catch(() => undefined)
+}
+
+// The finished flow in one line, with what its workers cost and took when there were any.
+const finishedLine = (f: Flow, list: AgentRun[], at: number): string => {
+  const parts = [`${f.title}: ${tr().done}`]
+  if (f.total) parts.push(`${f.done}/${f.total}`)
+  if (list.length) {
+    const t = totals(list, at)
+    parts.push(`≈${fmtCost(t.cost)}`, fmtTime(t.time))
+  }
+  return parts.join(' · ')
+}
+
 export const register: Register = (on, options) => {
+  const notifyMode = notifyModeOf(options.notify)
+
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     lang = await detectLang($, options.language)
@@ -791,12 +824,17 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: TOOL }, async ($, e) => {
     const input = e as unknown as ProgressInput
     const prev = await read($, flow)
+    if (isRepeatFinish(prev, input)) return { result: `ok: ${label(prev)}` }
     if (isNewFlow(prev, input) && input.title !== undefined) {
       // A new flow starts with a clean list; agents still running stay.
       await update($, agents, list => list.filter(a => a.status === 'running'))
     }
     const next = await update($, flow, p => merge(p, input))
     if (next && input.tasks?.length) await autoOpen($, next.title)
+    if (next?.isFinished) {
+      const list = await read($, agents)
+      await announce($, notifyMode, finishedLine(next, list, list.length ? await $.clock.now() : 0))
+    }
     return { result: `ok: ${label(next ?? blank())}` }
   })
 
@@ -930,6 +968,11 @@ export const register: Register = (on, options) => {
         }),
       )
       await update($, now, () => at)
+      // An abort is the person's own doing; an error or a refusal is worth a word.
+      if (e.reason === 'error' || e.reason === 'refusal') {
+        const failed = (await read($, agents)).find(a => a.agentId === agentId)
+        if (failed) await announce($, notifyMode, `${failed.description || failed.type}: ${tr().failed}`)
+      }
     }
     return next(e)
   })

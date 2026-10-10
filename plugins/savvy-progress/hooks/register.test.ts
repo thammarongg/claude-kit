@@ -18,6 +18,7 @@ const plan = {
 
 for (const surface of ['terminal', 'desktop'] as const) {
   test(`${surface}: the band shows what the flow reports`, async ($, on) => {
+    on('ui.toast', () => ({ value: undefined }))
     // Reporting a plan opens the panel by itself, once per flow.
     const opened: string[] = []
     on('ui.open', (_$, e) => {
