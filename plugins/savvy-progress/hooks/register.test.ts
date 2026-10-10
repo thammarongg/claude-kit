@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 
 const PLUGIN = 'savvy-progress'
 const PROGRESS = 'mcp__savvy-progress__progress'
@@ -35,6 +35,21 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await $.tool.call({ tool: PROGRESS, done: 1 } as never)
     expect(opened).toEqual(['savvy-agents'])
     expect(await $.tool.call({ tool: PROGRESS, finished: true } as never)).toMatchObject({ result: 'ok: Done' })
+  })
+
+  test(`${surface}: the panel lists planned tasks in Thai`, { options: { language: 'th' } }, async ($, on) => {
+    mock.clock(on)
+    on('session.start', (_$, e) => ({ cwd: e.cwd }))
+    on('tool.register', (_$, e) => ({ value: { tool: `mcp__${PLUGIN}__${e.name}` } }))
+    on('command.register', (_$, e) => ({ value: { command: e.name } }))
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+    await $.session.start({ cwd: '/tmp', surface, isInteractive: true })
+
+    expect(await $.tool.call(plan as never)).toMatchObject({ result: 'ok: งาน 0/2' })
+
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: 'savvy-agents', props: pane })
+    expect(await ui.find({ text: /วางแผนไว้ · 2/ })).toBeDefined()
+    expect((await ui.find({ key: 'compact' }))?.props.label).toBe('ย่อ')
   })
 
   // The schema's enum and bounds are advice to the model: a call outside them must still draw.

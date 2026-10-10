@@ -36,9 +36,9 @@ type ProgressInput = {
 
 // ---------------------------------------------------------------------------
 // Language: the `language` option, else Claude Code's `language` setting, else the
-// process locale; English when nothing says Russian.
+// process locale; English when nothing says Thai or Russian.
 
-type Lang = 'en' | 'ru'
+type Lang = 'en' | 'th' | 'ru'
 
 const STRINGS = {
   en: {
@@ -68,6 +68,34 @@ const STRINGS = {
     tasks: 'Tasks',
     review: 'Review',
     busy: 'running',
+  },
+  th: {
+    pane: 'เอเจนต์',
+    cost: 'ค่าใช้จ่าย',
+    tokens: 'โทเคน',
+    time: 'เวลา',
+    collapse: 'ย่อ',
+    expand: 'ขยาย',
+    running: 'กำลังทำงาน',
+    finished: 'เสร็จแล้ว',
+    planned: 'วางแผนไว้',
+    empty: 'ยังไม่มีซับเอเจนต์',
+    round: 'รอบ',
+    failed: 'ผิดพลาด',
+    after: 'หลัง',
+    tokensWord: 'โทเคน',
+    agentsCount: 'เอเจนต์',
+    isRunning: 'กำลังทำงาน',
+    isFinished: 'เสร็จแล้ว',
+    isPlanned: 'วางแผนไว้',
+    opened: 'เปิดแผงเอเจนต์แล้ว',
+    closed: 'ปิดแผงเอเจนต์แล้ว',
+    done: 'เสร็จสิ้น',
+    plan: 'วางแผน',
+    design: 'ออกแบบ',
+    tasks: 'งาน',
+    review: 'รีวิว',
+    busy: 'กำลังทำ',
   },
   ru: {
     pane: 'Агенты',
@@ -103,18 +131,24 @@ const STRINGS = {
 let lang: Lang = 'en'
 const tr = () => STRINGS[lang]
 
-const isRussian = (v: unknown): boolean => typeof v === 'string' && /^(ru|russian|рус)/i.test(v.trim())
+// A language name ("Thai", "ไทย", "русский") or a locale ("th_TH.UTF-8", "ru").
+const langOf = (v: unknown): Lang => {
+  const s = typeof v === 'string' ? v.trim() : ''
+  if (/^(th([_.@-]|$)|thai|ไทย|ภาษาไทย)/i.test(s)) return 'th'
+  if (/^(ru|russian|рус)/i.test(s)) return 'ru'
+  return 'en'
+}
 
 async function detectLang($: EngineInterface, option: unknown): Promise<Lang> {
-  if (option === 'en' || option === 'ru') return option
+  if (option === 'en' || option === 'th' || option === 'ru') return option
   try {
     const settings = (await $.settings.read()) as Record<string, unknown>
-    if (typeof settings.language === 'string' && settings.language.trim()) return isRussian(settings.language) ? 'ru' : 'en'
+    if (typeof settings.language === 'string' && settings.language.trim()) return langOf(settings.language)
   } catch {
     // No settings: fall through to the locale.
   }
   const locale = (await $.env.get('LC_ALL')) || (await $.env.get('LC_MESSAGES')) || (await $.env.get('LANG'))
-  return isRussian(locale) ? 'ru' : 'en'
+  return langOf(locale)
 }
 
 const blank = (): Flow => ({
@@ -195,9 +229,12 @@ const xml = (s: string): string =>
 
 const clip = (s: string, max: number): string => (s.length > max ? s.slice(0, Math.max(1, max - 1)) + '…' : s)
 
+// Thai vowels and tone marks that sit above or below a consonant: no advance of their own.
+const THAI_MARK = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/
+
 // Rough advance of system UI text, in em; good enough to size the title's slot.
 const charEm = (ch: string): number =>
-  /[\s.,:;'|!il1()[\]]/.test(ch) ? 0.3 : /[A-ZА-ЯЁmwшщжюМШЩЖЮ@%]/.test(ch) ? 0.72 : 0.56
+  THAI_MARK.test(ch) ? 0 : /[\s.,:;'|!il1()[\]]/.test(ch) ? 0.3 : /[A-ZА-ЯЁmwшщжюМШЩЖЮ@%]/.test(ch) ? 0.72 : 0.56
 
 const textWidth = (s: string, size: number): number => [...s].reduce((w, ch) => w + charEm(ch) * size, 0)
 
@@ -247,7 +284,7 @@ const rowSvg = (f: Flow, W: number, isWorking: boolean): string => {
   }
 
   const text = label(f)
-  const pillW = Math.round(18 + text.length * 6.6)
+  const pillW = Math.round(18 + [...text].filter(ch => !THAI_MARK.test(ch)).length * 6.6)
   const pillX = Math.max(0, Math.min(BAR_W - pillW, fillW - pillW))
   const percent = `${Math.round(ratio(f) * 100)}%`
 
