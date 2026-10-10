@@ -69,6 +69,7 @@ const STRINGS = {
     review: 'Review',
     busy: 'running',
     workersOnly: 'only subagents report steps',
+    mainOnly: 'only the main session reports the flow',
   },
   th: {
     pane: 'เอเจนต์',
@@ -98,6 +99,7 @@ const STRINGS = {
     review: 'รีวิว',
     busy: 'กำลังทำ',
     workersOnly: 'เฉพาะซับเอเจนต์เท่านั้นที่รายงานขั้นตอนได้',
+    mainOnly: 'เฉพาะเซสชันหลักเท่านั้นที่รายงานความคืบหน้าของ flow ได้',
   },
   ru: {
     pane: 'Агенты',
@@ -127,6 +129,7 @@ const STRINGS = {
     review: 'Ревью',
     busy: 'в работе',
     workersOnly: 'о шагах сообщают только субагенты',
+    mainOnly: 'о ходе потока сообщает только основная сессия',
   },
 } as const
 
@@ -757,7 +760,8 @@ export const register: Register = (on, options) => {
       description:
         'Report /savvy-flow progress to the progress bar above the prompt and the agents panel. ' +
         'Call it after presenting the plan (title, total, tasks, phase "delegate"), each time a task is accepted (done), ' +
-        'when switching phase or re-planning (tasks), and once at the end with finished: true. Fields left out keep their previous value.',
+        'when switching phase or re-planning (tasks), and once at the end with finished: true. Fields left out keep their previous value. ' +
+        'For the main session only: a call from a subagent is ignored (workers report with `step`).',
       inputSchema: {
         type: 'object',
         properties: {
@@ -822,6 +826,9 @@ export const register: Register = (on, options) => {
   })
 
   on('tool.call', { tool: TOOL }, async ($, e) => {
+    // The flow is the main session's: a call from a worker's loop carries its agentId
+    // and changes nothing, or any subagent could rename, finish or reset the flow.
+    if (e.agentId) return { result: `ignored: ${tr().mainOnly}` }
     const input = e as unknown as ProgressInput
     const prev = await read($, flow)
     if (isRepeatFinish(prev, input)) return { result: `ok: ${label(prev)}` }

@@ -23,6 +23,13 @@ const IGNORED = {
   ru: 'ignored: о шагах сообщают только субагенты',
 } as const
 
+// What the progress tool answers a subagent: the flow is the main session's to report.
+const MAIN_ONLY = {
+  en: 'ignored: only the main session reports the flow',
+  th: 'ignored: เฉพาะเซสชันหลักเท่านั้นที่รายงานความคืบหน้าของ flow ได้',
+  ru: 'ignored: о ходе потока сообщает только основная сессия',
+} as const
+
 type Case = {
   name: string
   option: string
@@ -112,5 +119,6 @@ for (const c of cases) {
 
     expect(await $.tool.call(plan as never)).toMatchObject({ result: REPORTED[c.expected] })
     expect(await $.tool.call({ tool: STEP, done: 1 } as never)).toMatchObject({ result: IGNORED[c.expected] })
+    expect(await $.tool.call({ tool: PROGRESS, agentId: 'a1', title: 'Not mine' } as never)).toMatchObject({ result: MAIN_ONLY[c.expected] })
   })
 }
