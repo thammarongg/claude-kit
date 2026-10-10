@@ -222,7 +222,8 @@ const H = 22
 const BAR_H = 16
 const CRAB_W = 26
 const CELL = 3
-const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',sans-serif"
+// The system fonts carry no Thai: Thai falls through to Sukhumvit Set where it is installed.
+const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI','Sukhumvit Set',sans-serif"
 
 const xml = (s: string): string =>
   s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] ?? c)
