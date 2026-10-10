@@ -30,6 +30,17 @@
         "toast",
         "native"
       ]
+    },
+    "theme": {
+      "type": "string",
+      "title": "Panel theme",
+      "description": "auto follows Claude Code's theme setting, then the system's light or dark preference",
+      "default": "auto",
+      "options": [
+        "auto",
+        "light",
+        "dark"
+      ]
     }
   },
   "homepage": "https://github.com/thammarongg/claude-kit/tree/feat/thai-language/plugins/savvy-progress",
