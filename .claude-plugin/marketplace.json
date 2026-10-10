@@ -1,7 +1,7 @@
 {
   "name": "claude-kit",
-  "owner": { "name": "johnnyvizz", "url": "https://github.com/johnnyvizz" },
-  "metadata": { "description": "johnnyvizz's public Claude Code skills and mods." },
+  "owner": { "name": "thammarongg", "url": "https://github.com/thammarongg" },
+  "metadata": { "description": "thammarongg's fork of johnnyvizz's claude-kit: Claude Code skills and mods." },
   "plugins": [
     {
       "name": "savvy-flow",

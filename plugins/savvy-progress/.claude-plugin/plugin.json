@@ -3,8 +3,8 @@
   "version": "1.2.0",
   "description": "Progress bar above the prompt for /savvy-flow, plus an agents panel (/agents-info): running, finished and planned subagents with model, task progress, context, cost and time.",
   "author": {
-    "name": "johnnyvizz",
-    "url": "https://github.com/johnnyvizz"
+    "name": "thammarongg",
+    "url": "https://github.com/thammarongg"
   },
   "types": "./types/index.d.ts",
   "userConfig": {
@@ -21,7 +21,7 @@
       ]
     }
   },
-  "homepage": "https://github.com/johnnyvizz/claude-kit/tree/main/plugins/savvy-progress",
-  "repository": "https://github.com/johnnyvizz/claude-kit",
+  "homepage": "https://github.com/thammarongg/claude-kit/tree/feat/thai-language/plugins/savvy-progress",
+  "repository": "https://github.com/thammarongg/claude-kit",
   "license": "MIT"
 }
