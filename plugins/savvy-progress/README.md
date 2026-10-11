@@ -20,7 +20,7 @@ Cost is a rough estimate from token counts and a built-in per-model price table 
 { "pluginConfigs": { "savvy-progress": { "options": { "language": "ru" } } } }
 ```
 
-`theme`: `auto` (default), `light` or `dark`. The panel and the bar are drawn as images, which cannot ask the page how it looks: `auto` follows Claude Code's own `theme` setting and repaints when you change it, and falls back to the system's light or dark preference when that setting names neither. Set `light` or `dark` here if the drawings ever disagree with the app.
+`theme`: `auto` (default), `light` or `dark`. The panel and the bar are drawn as images, which cannot ask the page how it looks: on `auto` they carry both palettes and the page's own light or dark preference picks one, so they follow the app's appearance, not the `theme` setting of Claude Code's terminal. Set `light` or `dark` here if the drawings ever disagree with the app.
 
 `notify`: `toast` (default), `native` or `off`. When a flow finishes, and when a subagent ends in an error or a refusal, the mod says so in a toast: `Ship the thing: Done · 3/3 · ≈$0.42 · 5:10`. `native` also sends it through your own notification channel (Claude Code's `preferredNotifChannel`), for when the window is not in front; `off` stays quiet. A subagent you interrupt yourself is not announced.
 

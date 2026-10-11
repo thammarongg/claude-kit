@@ -17,8 +17,9 @@ for (const [tier, runsOn, colour] of SAVINGS) {
 
     const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'savvy-agents', props: pane })
     const row = (await desktop.findAll({ type: 'Svg' })).map(el => String(el.props.source)).find(source => source.includes('Count the lines')) ?? ''
-    // Its name in its own colour, what it runs on beside it, and its own crab.
-    expect(row).toContain(`<tspan fill="${colour}">${tier}</tspan>`)
+    // Its name in its own class, which the dark palette gives its own colour, what it runs on beside it, and its own crab.
+    expect(row).toContain(`<tspan class="i-${tier}">${tier}</tspan>`)
+    expect(row).toContain(`.i-${tier}{fill:${colour}}`)
     expect(row).toContain(runsOn)
     expect(row).toContain(`class="c-${tier}"`)
 
@@ -35,7 +36,8 @@ for (const [tier, runsOn, colour] of SAVINGS) {
 
     const desktop = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'savvy-agents', props: pane })
     const row = (await desktop.findAll({ type: 'Svg' })).map(el => String(el.props.source)).find(source => source.includes('Count the lines')) ?? ''
-    expect(row).toContain(`<tspan fill="${colour}">${tier}</tspan>`)
+    expect(row).toContain(`<tspan class="i-${tier}">${tier}</tspan>`)
+    expect(row).toContain(`.i-${tier}{fill:${colour}}`)
     expect(row).toContain(`class="c-${tier} run"`)
   })
 }

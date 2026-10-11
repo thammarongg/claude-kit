@@ -11,7 +11,6 @@ const panel = atom({ plugin: 'savvy-progress', key: 'panel' } as const, {
   autoOpenedFor: '',
 })
 const now = atom({ plugin: 'savvy-progress', key: 'now' } as const, 0)
-const theme = atom({ plugin: 'savvy-progress', key: 'theme' } as const, 'system')
 
 const TOOL = 'mcp__savvy-progress__progress'
 const STEP_TOOL = 'mcp__savvy-progress__step'
@@ -28,24 +27,12 @@ const DONE = '#5fbf8f'
 
 // ---------------------------------------------------------------------------
 // Theme: the drawings are images, so they cannot ask the page what it looks like.
-// They follow the `theme` option, else Claude Code's own `theme` setting; when
-// neither says light or dark they carry both palettes behind the system's preference.
+// They carry both palettes behind `prefers-color-scheme`, the one question an image
+// can put to the page it is drawn on; the `theme` option names one palette outright.
+// Claude Code's own `theme` setting is the terminal's: a remote page may be light
+// while it says dark, so it is not read.
 
-const themeOf = (option: unknown, setting: unknown): Theme => {
-  if (option === 'light' || option === 'dark') return option
-  const name = typeof setting === 'string' ? setting.toLowerCase() : ''
-  return name.includes('light') ? 'light' : name.includes('dark') ? 'dark' : 'system'
-}
-
-async function readTheme($: EngineInterface, option: unknown): Promise<Theme> {
-  if (option === 'light' || option === 'dark') return option
-  try {
-    return themeOf(option, (await $.config.list()).find(row => row.key === 'theme')?.value)
-  } catch {
-    // No config to read: leave it to the system's preference.
-    return 'system'
-  }
-}
+const themeOf = (option: unknown): Theme => (option === 'light' || option === 'dark' ? option : 'system')
 
 const themed = (look: Theme, light: string, dark: string): string =>
   look === 'light' ? light : look === 'dark' ? dark : `${light}@media (prefers-color-scheme: dark){${dark}}`
@@ -381,7 +368,8 @@ const TIER_COLOR: Record<string, string> = {
 const colorOf = (tier: string): string => TIER_COLOR[tier] ?? '#888780'
 
 // A tier's name as text: on a light page the tier colours are too pale to read,
-// so a known light theme gets a deeper shade of each.
+// so the light palette has a deeper shade of each. The name is drawn in its
+// tier's class, so the palette in force colours it.
 const TIER_INK_LIGHT: Record<string, string> = {
   fable: '#5F56C9',
   heavy: '#B8431C',
@@ -393,7 +381,7 @@ const TIER_INK_LIGHT: Record<string, string> = {
   other: '#6b6b68',
 }
 
-const tierInk = (tier: string, look: Theme): string => (look === 'light' ? (TIER_INK_LIGHT[tier] ?? '#6b6b68') : colorOf(tier))
+const inkCss = (inks: Record<string, string>): string => Object.entries(inks).map(([tier, ink]) => `.i-${tier}{fill:${ink}}`).join('')
 
 // What each savvy tier runs on, for planned tasks that have no run yet.
 
@@ -516,7 +504,7 @@ const PANE_LIGHT = '.t{fill:#1f1f1f}.s{fill:#5f5e5a}.m{fill:#77766f}.k{fill:#e9e
 const PANE_DARK = '.t{fill:#ececec}.s{fill:#b4b3ae}.m{fill:#9b9a95}.k{fill:#343432}.ln{stroke:#3a3a38}.tile{fill:#2a2a28;stroke:#3f3f3c}.er{fill:#f0736c}'
 
 const paneCss = (look: Theme): string => `<style>
-${themed(look, PANE_LIGHT, PANE_DARK)}
+${themed(look, PANE_LIGHT + inkCss(TIER_INK_LIGHT), PANE_DARK + inkCss(TIER_COLOR))}
 .live{animation:p 1.6s ease-in-out infinite}@keyframes p{50%{opacity:.3}}
 @media (prefers-reduced-motion: reduce){.live{animation:none}}
 </style>`
@@ -729,7 +717,7 @@ const agentSvg = (W: number, a: AgentRun, at: number, look: Theme): string => {
     AGENT_H,
     `${crab(0, 12, costumeOf(a.type), false, a.status === 'running')}
 <text class="t" x="42" y="16" font-family="${FONT}" font-size="13" font-weight="600">${xml(fitText(a.description || a.type, 13, barW))}</text>
-<text x="42" y="32" font-family="${FONT}" font-size="11"><tspan fill="${tierInk(tier, look)}">${xml(name)}</tspan><tspan class="s">  ${xml(metaW > 24 ? fitText(meta.join('  ·  '), 11, metaW) : '')}</tspan>${isFailed ? `<tspan class="er">${xml(failedNote)}</tspan>` : ''}</text>
+<text x="42" y="32" font-family="${FONT}" font-size="11"><tspan class="i-${tier}">${xml(name)}</tspan><tspan class="s">  ${xml(metaW > 24 ? fitText(meta.join('  ·  '), 11, metaW) : '')}</tspan>${isFailed ? `<tspan class="er">${xml(failedNote)}</tspan>` : ''}</text>
 <text class="s" x="${42 + barW}" y="32" text-anchor="end" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${spent}</text>
 ${steps && stepsW > 30 ? `<text class="t" x="42" y="47" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${xml(fitText(steps, 11, stepsW))}</text>` : ''}
 <text class="m" x="${42 + barW}" y="47" text-anchor="end" font-family="${FONT}" font-size="11" font-variant-numeric="tabular-nums">${context}</text>
@@ -752,7 +740,7 @@ const plannedSvg = (W: number, p: Planned, look: Theme): string => {
     PLANNED_H,
     `${crab(0, 4, tier, true)}
 <text class="s" x="42" y="16" font-family="${FONT}" font-size="13" font-weight="600">${xml(fitText(`${p.n}. ${p.title}`, 13, textW))}</text>
-<text x="42" y="32" font-family="${FONT}" font-size="11"><tspan fill="${tierInk(tier, look)}">${xml(tier)}</tspan><tspan class="m">  ${xml(meta.filter(Boolean).join('  ·  '))}</tspan></text>
+<text x="42" y="32" font-family="${FONT}" font-size="11"><tspan class="i-${tier}">${xml(tier)}</tspan><tspan class="m">  ${xml(meta.filter(Boolean).join('  ·  '))}</tspan></text>
 ${statusMark(W - 8, 14, 'planned', color)}`,
     look,
   )
@@ -877,12 +865,11 @@ const finishedLine = (f: Flow, list: AgentRun[], at: number): string => {
 
 export const register: Register = (on, options) => {
   const notifyMode = notifyModeOf(options.notify)
+  const look = themeOf(options.theme)
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     lang = await detectLang($, options.language)
-    const look = await readTheme($, options.theme)
-    await update($, theme, () => look)
     await $.tool.register({
       name: 'progress',
       description:
@@ -946,14 +933,6 @@ export const register: Register = (on, options) => {
       })()
     })
     return started
-  })
-
-  // The person changed Claude Code's theme: the drawings follow at once.
-  on('config.set', { key: 'theme' }, async ($, e, next) => {
-    const result = await next(e)
-    const look = themeOf(options.theme, e.value)
-    await update($, theme, () => look)
-    return result
   })
 
   on('command.run', { command: 'agents-info' }, async $ => {
@@ -1130,7 +1109,6 @@ export const register: Register = (on, options) => {
     const list = await read($, agents)
     const f = await read($, flow)
     const p: Panel = await read($, panel)
-    const look = await read($, theme)
     const at = Math.max(await read($, now), ...list.map(a => a.startedAt), 0)
 
     const running = list.filter(a => a.status === 'running').reverse()
@@ -1350,7 +1328,7 @@ export const register: Register = (on, options) => {
       const width = Math.max(180, Math.min(1600, (e.props.bodyColumns || 100) * 8 - 96))
       return (
         <Box flexDirection="row" alignItems="center" gap={1}>
-          <Svg source={rowSvg(f, width, isWorking, await read($, theme))} alt={`${f.title}: ${label(f)}, ${percent}`} width={width} height={H} />
+          <Svg source={rowSvg(f, width, isWorking, look)} alt={`${f.title}: ${label(f)}, ${percent}`} width={width} height={H} />
           {crewButton}
           {dismiss}
         </Box>

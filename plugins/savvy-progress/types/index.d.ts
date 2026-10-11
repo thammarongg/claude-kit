@@ -42,7 +42,7 @@ export type AgentRun = {
   activity?: string
 }
 
-/** How the drawings are coloured: a known theme, or both palettes behind the system's preference. */
+/** How the drawings are coloured: one palette, or both behind the page's light or dark preference. */
 export type Theme = 'light' | 'dark' | 'system'
 
 export type Panel = {
@@ -58,7 +58,6 @@ declare module 'claude-code' {
       agents: AgentRun[]
       panel: Panel
       now: number
-      theme: Theme
     }
   }
 }

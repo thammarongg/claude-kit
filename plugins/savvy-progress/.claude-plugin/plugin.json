@@ -1,6 +1,6 @@
 {
   "name": "savvy-progress",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "Progress bar above the prompt for /savvy-flow, plus an agents panel (/agents-info): running, finished and planned subagents with model, task progress, context, cost and time.",
   "author": {
     "name": "thammarongg",
@@ -34,7 +34,7 @@
     "theme": {
       "type": "string",
       "title": "Panel theme",
-      "description": "auto follows Claude Code's theme setting, then the system's light or dark preference",
+      "description": "auto follows the app's light or dark appearance; light or dark draws that palette always",
       "default": "auto",
       "options": [
         "auto",
